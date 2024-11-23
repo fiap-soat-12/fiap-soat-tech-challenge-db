@@ -1,0 +1,56 @@
+name: Terraform DB Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # Job para verificação do terraform do banco de dados em pull requests e merge para a main e push para RDS na main 
+  db:
+    name: Terraform Verification and Push DB PostgreSql to RDS
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.4.0
+
+      # Inicializar, validar e aplicar o Terraform para o diretório terraform
+      - name: Initialize Terraform for DB
+        working-directory: terraform
+        run: terraform init
+
+      - name: Validate Terraform for DB
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Plan Terraform for DB
+        if: github.ref == 'refs/heads/main' # Executa apenas na branch main
+        working-directory: terraform
+        run: terraform plan -out=db
+
+      - name: Apply Terraform for DB
+        if: github.ref == 'refs/heads/main' # Executa apenas na branch main
+        working-directory: terraform
+        run: terraform apply -auto-approve db
